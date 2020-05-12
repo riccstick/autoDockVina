@@ -15,7 +15,7 @@ vina="$_arg_startvina"
 ### Functions
 
 start () {
-version="autoDockVina_v1.1"
+version="autoDockVina_v1.0"
 if [ -z "$file" ]; then
   echo ""
   echo "$version"
