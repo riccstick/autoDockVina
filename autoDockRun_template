@@ -1,0 +1,135 @@
+#!/bin/bash
+#
+# ARG_OPTIONAL_SINGLE([configFile],[c],[inputFileName])
+# ARG_OPTIONAL_SINGLE([outputFile],[o],[outputFileName])
+# ARG_OPTIONAL_BOOLEAN([startVina], [s], [starts docking run with AutodockVina])
+# ARG_HELP([The general script's help msg])
+
+# ARGBASH_GO
+
+# [ <-- needed because of Argbash
+WD=$(pwd)
+TMP="/tmp"
+file="$_arg_configfile"
+vina="$_arg_startvina"
+### Functions
+
+start () {
+version="autoDockVina_v1.1"
+if [ -z "$file" ]; then
+  echo ""
+  echo "$version"
+  echo ""
+  echo "No Input... -> `basename $0` -h for help"
+  echo ""
+  echo "This program converts the vina input file generated with the pymol AutoDock plugin, to run it on the server."
+  echo ""
+  echo "Files needed for docking: .vina_config.txt; receptor.rigid.pdbqt; ligand.pdbqt; (optional: receptor.flexible.pdbqt)"
+  echo ""
+  exit 0
+fi
+}
+
+getData () {
+receptor=$(cat $file | grep -m 1 "receptor =" | rev | cut -f 1 -d "/" | rev)
+flex=$(cat $file | grep -m 1 "flex =" | rev | cut -f 1 -d "/" | rev)
+ligand=$(cat $file | grep -m 1 "ligand =" | rev | cut -f 1 -d "/" | rev)
+center_x=$(cat $file | grep -m 1 center_x)
+center_y=$(cat $file | grep -m 1 center_y)
+center_z=$(cat $file | grep -m 1 center_z)
+size_x=$(cat $file | grep -m 1 size_x)
+size_y=$(cat $file | grep -m 1 size_y)
+size_z=$(cat $file | grep -m 1 size_z)
+out=$(cat $file | grep -m 1 "out =" | rev | cut -f 1 -d "/" | rev)
+log=$(cat $file | grep -m 1 "log =" | rev | cut -f 1 -d "/" | rev)
+numModes=$(cat $file | grep -m 1 num_modes)
+}
+
+buildNew () {
+if [ -z "$receptor" ]; then
+        :
+    else
+        printf "receptor = $WD/$receptor\n"
+fi
+if [ -z "$flex" ]; then
+        :
+    else
+        printf "flex = $WD/$flex\n"
+fi
+if [ -z "$ligand" ]; then
+        :
+    else
+        printf "ligand = $WD/$ligand\n"
+fi
+if [ -z "$center_x" ]; then
+        :
+    else
+        printf "$center_x\n"
+fi
+if [ -z "$center_y" ]; then
+        :
+    else
+        printf "$center_y\n"
+fi
+if [ -z "$center_z" ]; then
+        :
+    else
+        printf "$center_z\n"
+fi
+if [ -z "$size_x" ]; then
+        :
+    else
+        printf "$size_x\n"
+fi
+if [ -z "$size_y" ]; then
+        :
+    else
+        printf "$size_y\n"
+fi
+if [ -z "$size_z" ]; then
+        :
+    else
+        printf "$size_z\n"
+fi
+if [ -z "$out" ]; then
+        :
+    else
+        printf "out = $WD/$out\n"
+fi
+if [ -z "$log" ]; then
+        :
+    else
+        printf "log = $WD/$log\n"
+fi
+if [ -z "$numModes" ]; then
+        :
+    else
+        printf "$numModes\n"
+fi
+}
+
+vinaRun () {
+    vina --config $TMP/VinaConfigOutputFile
+}
+
+### script
+start
+getData
+if [ -z "$_arg_outputfile" ]; then
+        buildNew > $TMP/VinaConfigOutputFile
+        buildNew
+    else
+        buildNew > $TMP/VinaConfigOutputFile
+        buildNew > $_arg_outputfile
+fi
+if [ $vina = "off" ]; then
+        printf "\n"
+        printf "startVina (-s) option not given -> docking not started\n"
+        printf "\n"
+    else
+        printf "\n"
+        vinaRun
+        wait
+fi
+# ] <-- needed because of Argbash
+
