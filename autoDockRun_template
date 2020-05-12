@@ -1,8 +1,9 @@
 #!/bin/bash
 #
-# ARG_OPTIONAL_SINGLE([configFile],[c],[inputFileName])
-# ARG_OPTIONAL_SINGLE([outputFile],[o],[outputFileName])
-# ARG_OPTIONAL_BOOLEAN([startVina], [s], [starts docking run with AutodockVina])
+# ARG_OPTIONAL_SINGLE([configFile], c,[inputFileName])
+# ARG_OPTIONAL_SINGLE([outputFile], o,[outputFileName])
+# ARG_OPTIONAL_SINGLE([colig], l,[cofactor/ligand file which should be added to rigid receptor .pdbqt file])
+# ARG_OPTIONAL_BOOLEAN([startVina], s, [starts docking run with AutodockVina])
 # ARG_HELP([The general script's help msg])
 
 # ARGBASH_GO
@@ -12,10 +13,11 @@ WD=$(pwd)
 TMP="/tmp"
 file="$_arg_configfile"
 vina="$_arg_startvina"
+colig="$_arg_colig"
 ### Functions
 
 start () {
-version="autoDockVina_v1.0"
+version="autoDockVina_v1.1"
 if [ -z "$file" ]; then
   echo ""
   echo "$version"
@@ -26,8 +28,13 @@ if [ -z "$file" ]; then
   echo ""
   echo "Files needed for docking: .vina_config.txt; receptor.rigid.pdbqt; ligand.pdbqt; (optional: receptor.flexible.pdbqt)"
   echo ""
+  echo "Can optionally add a ligand or cofactor .pdbqt file (prepared by autotools) to rigid receptor file, to dock a ligand in presence of the cofactor or other ligand"
   exit 0
 fi
+}
+addColig () {
+	while IFS= read -r line; do echo "$line" | grep "HETATM" >> $TMP/colig.pdbqt ; done < $colig
+	cat $receptor $TMP/colig.pdbqt > colig.$receptor
 }
 
 getData () {
@@ -48,6 +55,8 @@ numModes=$(cat $file | grep -m 1 num_modes)
 buildNew () {
 if [ -z "$receptor" ]; then
         :
+    elif [ ! -z $colig ]; then
+    	printf "receptor = $WD/colig.$receptor\n"	
     else
         printf "receptor = $WD/$receptor\n"
 fi
@@ -112,24 +121,48 @@ vinaRun () {
     vina --config $TMP/VinaConfigOutputFile
 }
 
-### script
+cleanUp () {
+	rm $TMP/VinaConfigOutputFile $TMP/colig.pdbqt >/dev/null 2>/dev/null
+}
+	
+### script functions
+buildNewRun () {
+	if [ -z "$_arg_outputfile" ]; then
+        	buildNew > $TMP/VinaConfigOutputFile
+        	buildNew
+    	else
+        	buildNew > $TMP/VinaConfigOutputFile
+        	buildNew > $_arg_outputfile
+	fi
+}
+
+coligRun () {
+	if [ -z $colig ]; then
+            :
+        else
+            addColig
+	fi 
+}
+
+vinaRunRun () {
+	if [ $vina = "off" ]; then
+        	printf "\n"
+        	printf "startVina (-s) option not given -> docking not started\n"
+        	printf "\n"
+    	else
+        	printf "\n"
+        	vinaRun
+        	wait
+	fi
+}
+
+#RUN
+
 start
 getData
-if [ -z "$_arg_outputfile" ]; then
-        buildNew > $TMP/VinaConfigOutputFile
-        buildNew
-    else
-        buildNew > $TMP/VinaConfigOutputFile
-        buildNew > $_arg_outputfile
-fi
-if [ $vina = "off" ]; then
-        printf "\n"
-        printf "startVina (-s) option not given -> docking not started\n"
-        printf "\n"
-    else
-        printf "\n"
-        vinaRun
-        wait
-fi
+buildNewRun
+coligRun
+vinaRunRun
+cleanUp
 # ] <-- needed because of Argbash
 
